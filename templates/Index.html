@@ -1,0 +1,118 @@
+{% extends "Base.html" %}
+{% block title %}Vex - your personal assistant{% endblock %}
+{% block content %}
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    height: 20vh;
+    margin: 0;
+  }
+
+  .container {
+    margin-top: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+  }
+
+  .heading {
+    font-size: 30px;
+    margin-bottom: 50px; /* Reduced this from 100px to 20px */
+  }
+
+  .form-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 100px;
+  }
+
+  .input-field {
+    margin-bottom: 30px;
+  }
+
+  .message-field {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    height: 20vh;
+  }
+
+  .message-field input, .message-field button {
+    margin-right: 10px;
+  }
+
+  .submit-button {
+    margin-bottom: 20px;  /* Adjust this value to your needs */
+  }
+</style>
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-BJ0DC3YD62"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    dataLayer.push(arguments);
+  }
+  gtag("js", new Date());
+  gtag("config", "G-BJ0DC3YD62");
+</script>
+
+
+<div class="container">
+  <h1 class="heading">Vex - your personal assistant</h1>
+
+  <div class="messages">
+    {% if question_answer %}
+    {% set q_and_a = question_answer.split(":") %}
+    <h3>Your Question:</h3>
+    <p>{{ q_and_a[0] }}</p>
+    <h3>Answer:</h3>
+    <p>{{ q_and_a[1] }}</p>
+    {% endif %}
+    {% if file_message %}
+    <p>{{ file_message }}</p>
+    {% endif %}
+  </div>
+
+  <div class="form-container">
+    <form method="POST" action="/" enctype="multipart/form-data">
+      <div class="input-field message-field">
+        <label for="question">Send a message:</label>
+        <input type="text" id="question" name="question" required autocomplete="off">
+        <button type="submit">Submit</button>
+      </div>
+
+      <div class="input-field">
+        <label for="file">Upload a PDF:</label>
+        <input type="file" id="file" name="file">
+        <p class="warning">Currently we only allow 100 pages per upload </p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+window.onload = function() {
+    document.getElementById('file').addEventListener('change', function() {
+        if (this.value) {
+            this.form.submit();
+        }
+    });
+}
+</script>
+
+{% endblock %}
+
+
+
+
+
+
+
+
+

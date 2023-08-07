@@ -9,15 +9,10 @@ from werkzeug.utils import secure_filename
 from langchain.document_loaders import DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import Pinecone
-from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
-from langchain.chains.question_answering import load_qa_chain
-from flask_limiter import Limiter
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from langchain.document_loaders import PyPDFLoader
-import os
 import time
 import uuid
 

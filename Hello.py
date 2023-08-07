@@ -16,16 +16,17 @@ from langchain.chains.question_answering import load_qa_chain
 from flask_limiter import Limiter
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from langchain.document_loaders import PyPDFLoader
 import os
 import time
+import uuid
 
 app = Flask(__name__)
-limiter = Limiter(key_func=get_remote_address)
-limiter.init_app(app)
+
 app.config['UPLOAD_FOLDER'] = 'UPLOAD_FOLDER'
 app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 
-api_key = os.environ.get("OPENAI_API_KEY")
+api_key = os.environ.get("OPENAPI_API_KEY")
 index_name = "booktest"
 embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 pinecone.init(api_key=os.environ.get("Pine_api"), environment=os.environ.get("Pine_env"))
@@ -45,9 +46,9 @@ class OpenAILabAssistant:
         self.llm = ChatOpenAI(openai_api_key=api_key, temperature=0, model_name=model_name)
         self.chain = load_qa_chain(self.llm, chain_type=self.chain_type)
 
-    def generate_text(self, prompt, max_tokens=50):
+    def generate_text(self, prompt):
         prompt = "Answer only if the answer is in the document but give all the information you can: " + prompt
-        response = self.llm.generate(prompt, max_tokens=max_tokens)
+        response = self.llm.generate(prompt)
         generated_text = response.choices[0].text
         return generated_text
 
@@ -70,46 +71,57 @@ class OpenAILabAssistant:
 assistant = OpenAILabAssistant(api_key=api_key, index_name=index_name)
 assistant.setup()
 
+# Define the upload folder path
+UPLOAD_FOLDER = '/path/to/your/upload/folder'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+ALLOWED_EXTENSIONS = {'pdf'}  # Define allowed file extensions
+
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def load_docs(directory):
-    loader = DirectoryLoader(directory)
-    documents = loader.load()
-    return documents
-
-def split_docs(documents, chunk_size=1000, chunk_overlap=0):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    docs = text_splitter.split_documents(documents)
-    return docs
-
-@limiter.limit("200/day;50/hour")
 @app.route("/", methods=['GET', 'POST'])
 def home():
     question_answer = ''
     file_message = ''
+
     if request.method == 'POST':
+        # Process user input question
         if 'question' in request.form and request.form['question'].strip():
             question = request.form['question']
             answer = assistant.search_document(question)
             question_answer = f'{question}:{answer}'
 
-
         # File processing
+
         if 'file' in request.files:
             file = request.files['file']
             # Check if the file is not None and the filename is not an empty string
             if file and file.filename != '':
                 if allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    start_time = time.time()
+                    # Generate a unique filename using UUID and the original file extension
+                    unique_filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
 
-                    documents = load_docs(app.config['UPLOAD_FOLDER'])
-                    docs = split_docs(documents)
+                    # Save the file to the upload folder
+                    file.save(file_path)
 
-                    # Add documents to Pinecone
-                    index = Pinecone.from_documents(docs, embeddings, index_name=index_name)
-                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    # Use PyPDFLoader to load the PDF from the saved file path
+                    loader = PyPDFLoader(file_path)
+                    pages = loader.load_and_split()
+
+                    index_name = "booktest"
+
+                    index = Pinecone.from_documents(pages, embeddings, index_name=index_name)
+                    end_time = time.time()
+                    elapsed_time = end_time - start_time
+                    print(elapsed_time)
+
+
+                    # Remove the temporary uploaded file after processing
+                    os.remove(file_path)
 
                     file_message = "File processed successfully"
                 else:
@@ -117,9 +129,9 @@ def home():
 
     return render_template("Index.html", question_answer=question_answer, file_message=file_message)
 
-
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
